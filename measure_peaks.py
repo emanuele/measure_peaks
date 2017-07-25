@@ -92,14 +92,14 @@ def timestamps_signal_clip(timestamps, signal, timestep_min=980.0,
     return timestamps_clipped, signal_clipped
 
 
-def signal_smoothing(timestamps, signal, window_length=5, polyorder=1,
+def signal_smoothing(timestamps, signal, smoothing_window=5, smoothing_polyorder=1,
                      plot=True):
     """Smooth signal to remove high-frequency noise.
     """
     print("Smoothing")
     signal_smoothed = savgol_filter(signal,
-                                    window_length=window_length,
-                                    polyorder=polyorder)
+                                    window_length=smoothing_window,
+                                    polyorder=smoothing_polyorder)
     if plot:
         plt.figure()
         plt.plot(timestamps, signal_smoothed)
@@ -109,13 +109,13 @@ def signal_smoothing(timestamps, signal, window_length=5, polyorder=1,
     return signal_smoothed
 
 
-def baseline_correction(timestamps, signal, order=5,
+def baseline_correction(timestamps, signal, baseline_order=5,
                         baseline_threshold=1.0e-2, plot=True):
     """Detrend the signal with a polyline going through some of the lowest
     points in the signal.
     """
     print("Baseline correction.")
-    break_points = argrelextrema(signal, np.less, order=order)[0]
+    break_points = argrelextrema(signal, np.less, order=baseline_order)[0]
     # Remove break_points too far from their linear fit:
     linear_fit = np.poly1d(np.polyfit(timestamps[break_points],
                                       signal[break_points], 1))
@@ -149,8 +149,13 @@ def baseline_correction(timestamps, signal, order=5,
     return signal_detrended
 
 
-def load_and_prepare(filename, timestep_min=920, timestep_max=2000,
-                     window_length=5, polyorder=1, order=10, baseline_threshold=1.0e-2,
+def load_and_prepare(filename,
+                     timestep_min=920,
+                     timestep_max=2000,
+                     smoothing_window=5,
+                     smoothing_polyorder=1,
+                     baseline_order=10,
+                     baseline_threshold=1.0e-2,
                      plot=False):
     """Convenience function to load and preprocess HLPC data.
     """
@@ -162,19 +167,23 @@ def load_and_prepare(filename, timestep_min=920, timestep_max=2000,
                                                                 timestep_max=timestep_max, plot=plot)
     signal_smoothed = signal_smoothing(timestamps_clipped,
                                        signal_clipped,
-                                       window_length=window_length,
-                                       polyorder=polyorder, plot=plot)
+                                       smoothing_window=smoothing_window,
+                                       smoothing_polyorder=smoothing_polyorder, plot=plot)
     signal_detrended = baseline_correction(timestamps_clipped,
                                            signal_smoothed,
-                                           order=order,
+                                           baseline_order=baseline_order,
                                            baseline_threshold=baseline_threshold,
                                            plot=plot)
     return timestamps_clipped, signal_detrended, signal
 
 
-def automatic_peak_detection(timestamps, signal, lookahead=3,
-                             delta=1.0e-3, peak_min=0.002,
-                             expected_peaks=None, plot=True,
+def automatic_peak_detection(timestamps,
+                             signal,
+                             peak_lookahead=3,
+                             peak_delta=1.0e-3,
+                             peak_min=0.002,
+                             expected_peaks=None,
+                             plot=True,
                              offset=0.0):
     """Authomatic peak detection and post-detection filtering.
     """
@@ -186,8 +195,8 @@ def automatic_peak_detection(timestamps, signal, lookahead=3,
     # peaks_idx = np.array(find_peaks_cwt(signal, widths=peak_widths),
     #                      dtype=np.int)
     # This one works very well:
-    peaks_idx = np.array(peakdetect(signal, lookahead=lookahead,
-                                    delta=delta)[0])[:, 0].astype(np.int)
+    peaks_idx = np.array(peakdetect(signal, lookahead=peak_lookahead,
+                                    delta=peak_delta)[0])[:, 0].astype(np.int)
     print("Peaks detected: %s" % len(peaks_idx))
     if plot:
         if offset == 0.0:
@@ -233,7 +242,7 @@ def plot_peaks_area(timestamps, signal, peaks_idx, beginnings, ends,
     return
 
 
-def compute_peak_beginning_end(timestamps, signal, peaks_idx, order=5,
+def compute_peak_beginning_end(timestamps, signal, peaks_idx, be_order=5,
                                plot=True, offset=0.0):
     """Compute beginning and end of a peak.
     """
@@ -245,7 +254,7 @@ def compute_peak_beginning_end(timestamps, signal, peaks_idx, order=5,
     for i in range(len(tmp) - 2):
         try:  # sometimes argrelextrema does not find any result...
             beginnings[i] = tmp[i] + argrelextrema(signal[tmp[i]:tmp[i+1]],
-                                                   np.less, order=order)[0][-1]  # better!
+                                                   np.less, order=be_order)[0][-1]  # better!
         except IndexError:
             try:
                 beginnings[i] = tmp[i] + np.argmin(signal[tmp[i]:tmp[i+1]])  # basic
@@ -253,7 +262,7 @@ def compute_peak_beginning_end(timestamps, signal, peaks_idx, order=5,
                 beginnings[i] = tmp[i]  # if everything else fail...
 
         try:  # sometimes argrelextrema does not find any result...
-            ends[i] = tmp[i+1] + argrelextrema(signal[tmp[i+1]:tmp[i+2]], np.less, order=order)[0][0]  # better!
+            ends[i] = tmp[i+1] + argrelextrema(signal[tmp[i+1]:tmp[i+2]], np.less, order=be_order)[0][0]  # better!
         except IndexError:
             try:
                 ends[i] = tmp[i+1] + np.argmin(signal[tmp[i+1]:tmp[i+2]])  # basic
@@ -289,8 +298,9 @@ def compute_peaks_area(timestamps, signal, beginnings, ends):
 
 def glob_filenames(directory,
                    filenames=None):
-    """mix filenames with directory and retrieve (glob) filenames if not
-    available.
+    """mix filenames with directory and retrieve, i.e. glob, filenames if
+    not available.
+
     """
     mix = False
     if (filenames is None) or (filenames == []):
@@ -313,7 +323,18 @@ def glob_filenames(directory,
 
 def crunch_standards(standards,
                      standards_filename=None,
-                     standards_directory='standards', plot=True):
+                     standards_directory='standards',
+                     timestep_min=920,
+                     timestep_max=2000,
+                     smoothing_window=5,
+                     smoothing_polyorder=1,
+                     baseline_order=10,
+                     baseline_threshold=1.0e-2,
+                     peak_lookahead=3,
+                     peak_delta=1.0e-3,
+                     peak_min=0.002,
+                     be_order=5,
+                     plot=True):
     """Load, prepare, find peaks, measure area and compute means of standards.
     """
     print("Crunching standards...")
@@ -325,15 +346,25 @@ def crunch_standards(standards,
     for i, filename_standard in enumerate(standards_filename):
         timestamps_standard, signal_standard, \
             raw_standard = load_and_prepare(filename_standard,
+                                            timestep_min=timestep_min,
+                                            timestep_max=timestep_max,
+                                            smoothing_window=smoothing_window,
+                                            smoothing_polyorder=smoothing_polyorder,
+                                            baseline_order=baseline_order,
+                                            baseline_threshold=baseline_threshold,
                                             plot=plot)
         peaks_idx_standard = automatic_peak_detection(timestamps_standard,
                                                       signal_standard,
+                                                      peak_lookahead=peak_lookahead,
+                                                      peak_delta=peak_delta,
+                                                      peak_min=peak_min,
                                                       expected_peaks=len(standards),
                                                       plot=plot)
         beginnings_standard, \
             ends_standard = compute_peak_beginning_end(timestamps_standard,
                                                        signal_standard,
                                                        peaks_idx_standard,
+                                                       be_order=be_order,
                                                        plot=plot)
         peaks_area_standard = compute_peaks_area(timestamps_standard,
                                                  signal_standard,
@@ -438,8 +469,10 @@ def greedy_assignment(X):
 def match_peaks_standard_sample_lap_greedy(timestamps,
                                            timestamps_standard,
                                            peaks_idx,
-                                           peaks_idx_standard, signal,
-                                           signal_standard, standards,
+                                           peaks_idx_standard,
+                                           signal,
+                                           signal_standard,
+                                           standards,
                                            match_threshold=20.0,
                                            plot=True):
     """Standard-to-sample peaks matching based on greedy LAP, with
@@ -472,8 +505,12 @@ def match_peaks_standard_sample_lap_greedy(timestamps,
     return matching
 
 
-def compute_molar_fraction(standards, standards_exclude, peaks_area,
-                           peaks_area_standards, matching, filename):
+def compute_molar_fraction(standards,
+                           standards_exclude,
+                           peaks_area,
+                           peaks_area_standards,
+                           matching,
+                           filename):
     F = 100.0 / peaks_area_standards
     print("")
     print(filename)
@@ -519,7 +556,16 @@ def crunch_samples(standards,
                    samples_filename=None,
                    samples_directory='samples',
                    match_threshold=20,
+                   timestep_min=920,
+                   timestep_max=2000,
+                   smoothing_window=5,
+                   smoothing_polyorder=1,
+                   baseline_order=10,
+                   baseline_threshold=1.0e-2,
+                   peak_lookahead=3,
+                   peak_delta=1.0e-3,
                    peak_min=0.002,
+                   be_order=5,
                    plot=True,
                    savefig=True):
     """Crunch all samples.
@@ -531,9 +577,17 @@ def crunch_samples(standards,
     for i, sample_filename in enumerate(samples_filename):
         timestamps_sample, signal_sample, \
             raw_sample = load_and_prepare(sample_filename,
+                                          timestep_min=timestep_min,
+                                          timestep_max=timestep_max,
+                                          smoothing_window=smoothing_window,
+                                          smoothing_polyorder=smoothing_polyorder,
+                                          baseline_order=baseline_order,
+                                          baseline_threshold=baseline_threshold,
                                           plot=plot)
         peaks_idx_sample = automatic_peak_detection(timestamps_sample,
                                                     signal_sample,
+                                                    peak_lookahead=peak_lookahead,
+                                                    peak_delta=peak_delta,
                                                     peak_min=peak_min,
                                                     plot=plot)
         matching = match_peaks_standard_sample_lap_greedy(timestamps_sample,
@@ -549,11 +603,12 @@ def crunch_samples(standards,
             ends_sample = compute_peak_beginning_end(timestamps_sample,
                                                      signal_sample,
                                                      peaks_idx_sample,
+                                                     be_order=be_order,
                                                      plot=plot)
         peaks_area_sample = compute_peaks_area(timestamps_sample,
-                                                 signal_sample,
-                                                 beginnings_sample,
-                                                 ends_sample)
+                                               signal_sample,
+                                               beginnings_sample,
+                                               ends_sample)
         molar_fraction = compute_molar_fraction(standards,
                                                 standards_exclude,
                                                 peaks_area_sample,
