@@ -15,6 +15,8 @@ import sys
 
 # Adapted from: https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
 class Tee(object):
+    """Duplicates stdout on file, like the unix command tee.
+    """
     def __init__(self, name, mode='w'):
         self.file = open(name, mode)
         self.stdout = sys.stdout
