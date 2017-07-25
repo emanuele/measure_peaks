@@ -36,6 +36,7 @@ peaks_area_standards, timestamps_standard, signal_standard, \
     peaks_idx_standard = crunch_standards(standards,
                                           standards_filename=standards_filename,
                                           standards_directory=standards_directory,
+                                          match_threshold=match_threshold,
                                           plot=plot)
 
 
