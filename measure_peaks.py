@@ -1,13 +1,19 @@
+"""Code to parse HPLC files, to smooth the signal, to detrend, to
+detect peaks and to measure their areas. Moreover, given data from
+standards and samples, the mole fraction of each peak is estimated by
+comparing with the matching one in the standards.
+
+Copyright 2017 Emanuele Olivetti and Yuejiao Yang.
+MIT License
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
-# from pandas import read_csv
 import time
 from scipy.signal import savgol_filter, detrend, find_peaks_cwt, argrelextrema
 from scipy.interpolate import interp1d
 from scipy.integrate import trapz, simps
 from peakdetect import peakdetect
-# from DSPFP import DSPFP
-# from linear_assignment_numpy import LinearAssignment
 from glob import glob
 from os.path import join
 
