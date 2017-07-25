@@ -11,6 +11,28 @@ from peakdetect import peakdetect
 from glob import glob
 from os.path import join
 
+import sys
+
+# Adapted from: https://stackoverflow.com/questions/616645/how-do-i-duplicate-sys-stdout-to-a-log-file-in-python
+class Tee(object):
+    def __init__(self, name, mode='w'):
+        self.file = open(name, mode)
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def __del__(self):
+        sys.stdout = self.stdout
+        self.file.close()
+    def write(self, data):
+        self.file.write(data)
+        self.stdout.write(data)
+    def flush(self):
+        # this flush method is needed for python 3 compatibility.
+        # this handles the flush command by doing nothing.  you might
+        # want to specify some extra behavior here.
+        pass
+
+sys.stdout = Tee('report.txt')
+
 plt.interactive(True)
 
 
