@@ -60,6 +60,7 @@ peaks_area, matching, timestamps, \
                                             peaks_area_standards=peaks_area_standards,
                                             samples_filename=samples_filename,
                                             samples_directory=samples_directory,
+                                            match_threshold=match_threshold,
                                             timestep_min=timestep_min,
                                             timestep_max=timestep_max,
                                             smoothing_window=smoothing_window,
