@@ -368,6 +368,8 @@ def crunch_standards(standards,
     """Load, prepare, find peaks, measure area and compute means of standards.
     """
     print("Crunching standards...")
+    print("Declared standards: %s" % (standards, ))
+    print("Number of declared standards: %s" % len(standards))
     standards_filename = glob_filenames(directory=standards_directory,
                                         filenames=standards_filename)
     print("Standards' files: %s" % standards_filename)
