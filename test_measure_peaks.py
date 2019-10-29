@@ -23,14 +23,14 @@ baseline_threshold=1.0e-2
 # automatic peak detection:
 peak_lookahead = 3
 peak_delta = 1.0e-3
-peak_min = 0.002
+peak_min = 0.002  # minimum inetnsity below which the signal is considered as potential peak
 # compute_peak_beginning_end:
 be_order = 5
 # match_peaks_standard_sample_lap_greedy:
-match_threshold = 20.0
+match_threshold = 20.0  # time distance between standard and sample peaks in order to be considered as potential match
 # General plotting options
 plot = False
-savefig = False  # save the main graph as PDF
+savefig = True  # save the main graph as PDF
 
 
 peaks_area_standards, timestamps_standard, signal_standard, \
