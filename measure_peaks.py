@@ -606,6 +606,13 @@ def crunch_samples(standards,
     samples_filename = glob_filenames(directory=samples_directory,
                                       filenames=samples_filename)
     print("Standards' files: %s" % samples_filename)
+
+    peaks_area_samples = []
+    matchings = []
+    timestamps_samples = []
+    signal_samples = []
+    molar_fractions = []
+
     for i, sample_filename in enumerate(samples_filename):
         timestamps_sample, signal_sample, \
             raw_sample = load_and_prepare(sample_filename,
@@ -647,6 +654,13 @@ def crunch_samples(standards,
                                                 peaks_area_standards,
                                                 matching,
                                                 sample_filename)
+
+        peaks_area_samples.append(peaks_area_sample)
+        matchings.append(matching)
+        timestamps_samples.append(timestamps_sample)
+        signal_samples.append(signal_sample)
+        molar_fractions.append(molar_fraction)
+
         if savefig:
             tmp = sample_filename[:-4] + '.pdf'
             print("Saving %s" % (sample_filename[:-4] + '.pdf'))
@@ -656,4 +670,44 @@ def crunch_samples(standards,
         print("")
 
     print('Done.')
-    return peaks_area_sample, matching, timestamps_sample, signal_sample, molar_fraction
+    return samples_filename, peaks_area_samples, matchings, timestamps_samples, signal_samples, molar_fractions
+
+
+def merge_two_results_and_compute_molar_fraction(filename_smaller,
+                                                 filename_larger,
+                                                 samples_filename,
+                                                 peaks_area_samples,
+                                                 matchings, standards,
+                                                 standards_exclude,
+                                                 peaks_area_standards,
+                                                 aminoacids_to_merge):
+    """When the device is set at a certain (smaller) scale, all measurements
+    are more accurate but some clip. By repeating the measurements at
+    a larger scale those previously clipped measurements are now
+    correct but all others are less accurate. This function takes the
+    best measurements from the two sets and compute the results (molar
+    fraction), that now come from two files.
+    """
+    print("")
+    print("Merging the results of two sets of measurements at different scales.")
+    print("%s is at smaller scale" % filename_smaller)
+    print("%s is at larger scale" % filename_larger)
+    print("The aminoacids to be used from the larger-scale measures are: %s" % (aminoacids_to_merge,))
+    idx_smaller = samples_filename.index(filename_smaller)
+    idx_larger = samples_filename.index(filename_larger)
+
+    idx_aminoacids_to_merge = [standards.index(atm) for atm in aminoacids_to_merge]
+    idx_aminoacids_to_merge_smaller = [matchings[idx_smaller][iatm] for iatm in idx_aminoacids_to_merge]
+    idx_aminoacids_to_merge_larger = [matchings[idx_larger][iatm] for iatm in idx_aminoacids_to_merge]
+
+    peaks_area_sample_merged = peaks_area_samples[idx_smaller].copy()
+    peaks_area_sample_merged[idx_aminoacids_to_merge_smaller] = peaks_area_samples[idx_larger][idx_aminoacids_to_merge_larger]
+
+    molar_fraction = compute_molar_fraction(standards,
+                                            standards_exclude,
+                                            peaks_area_sample_merged,
+                                            peaks_area_standards,
+                                            matchings[idx_smaller],
+                                            filename='Merge of %s (small scale) with %s (large scale)' % (filename_smaller, filename_larger))
+
+    return molar_fraction
